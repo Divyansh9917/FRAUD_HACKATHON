@@ -1,0 +1,36 @@
+# Node dependencies
+node_modules/
+
+# Environment variables (Crucial for security!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build/Production folders
+build/
+dist/
+/public/build
+/client/build
+/server/dist
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Editor/IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary/Cache files
+.eslintcache
+.npm/
+.cache/
+.parcel-cache
