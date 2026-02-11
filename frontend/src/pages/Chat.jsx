@@ -43,7 +43,7 @@ const Chat = () => {
       });
       fetchHistory();
     } catch (err) {
-      // If you see this, the server on port 5000 is NOT responding
+      
       alert("Backend offline! Please check your terminal for nodemon errors.");
     }
   };
