@@ -1,34 +1,14 @@
 const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
-    sender:{ 
-        type:String, 
-        enum:['client','scammer'],
-        required:true 
-    },
-    text:{type:String,required:true},
-    timestamp:{type:Date,default:Date.now}
+  sender: String,
+  text: String,
+  timestamp: { type: Date, default: Date.now }
 });
 
-const ConversationSchema=new mongoose.Schema({
-    sessionId:{ 
-        type:String, 
-        required:true, 
-        unique:true 
-    },
-    history:[MessageSchema], 
-    isScamDetected:{type:Boolean,default:false},
-    extractedIntelligence:{
-        upiIds:[String],
-        bankAccounts:[String],
-        phishingLinks:[String],
-        scamType:String
-    },
-    status:{ 
-        type:String, 
-        enum:['active','completed','flagged'], 
-        default:'active' 
-    }
-},{timestamps:true});
+const ConversationSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true, unique: true },
+  history: [MessageSchema]
+});
 
-module.exports=mongoose.model('Conversation',ConversationSchema);
+module.exports = mongoose.model('Conversation', ConversationSchema);
