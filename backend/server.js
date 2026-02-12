@@ -8,7 +8,11 @@ const Conversation = require('./models/conversation');
 const app = express();
 
 // --- MIDDLEWARE ---
-app.use(cors()); 
+app.use(cors(
+  {allowedHeaders:'*',
+    origin:'*'
+  }
+)); 
 app.use(express.json());
 
 // --- DATABASE CONNECTION ---
