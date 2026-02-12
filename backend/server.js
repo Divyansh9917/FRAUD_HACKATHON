@@ -3,27 +3,35 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
-const Conversation = require('./models/Conversation');
+const Conversation = require('./models/conversation');
 
 const app = express();
 
-// Fix CORS for Vercel deployment
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "*",
-  methods: ["GET", "POST"],
-  credentials: true
-}));
+// --- MIDDLEWARE ---
+app.use(cors()); 
 app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI);
+// --- DATABASE CONNECTION ---
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ SUCCESS: Connected to MongoDB Atlas!"))
+  .catch((err) => console.error("❌ ERROR: MongoDB Connection Failed:", err.message));
 
+// --- API ROUTES ---
+
+// 1. Health Check
+app.get('/', (req, res) => res.send("BaatChit Backend Active"));
+
+// 2. GET: Fetch History (Sidebar polling ke liye)
 app.get('/api/history/:sessionId', async (req, res) => {
   try {
     const convo = await Conversation.findOne({ sessionId: req.params.sessionId });
     res.status(200).json(convo || { history: [], extractedIntelligence: {} });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// 3. POST: AI Agent Call (Postman jaisa exact behavior)
 app.post('/api/messages', async (req, res) => {
   const { sessionId, message } = req.body;
   const timeMs = Date.now(); 
@@ -31,31 +39,74 @@ app.post('/api/messages', async (req, res) => {
   try {
     let convo = await Conversation.findOne({ sessionId });
     if (!convo) convo = new Conversation({ sessionId, history: [] });
-    convo.history.push({ sender: 'user', text: message, timestamp: timeMs });
 
+    // Step A: Save user message in local DB
+    const userMsg = { sender: 'user', text: message, timestamp: timeMs };
+    convo.history.push(userMsg);
+
+    // Step B: Call Vercel Agent (Exact Postman Structure)
     try {
-      const aiRes = await axios.post(process.env.AI_AGENT_URL, {
+      const aiResponse = await axios.post(process.env.AI_AGENT_URL, {
         sessionId: sessionId,
-        message: { sender: "user", text: message, timestamp: timeMs },
-        conversationHistory: convo.history.map(m => ({
-          sender: m.sender, text: m.text, timestamp: m.timestamp
+        // Match the 'Message' Pydantic model exactly
+        message: {
+          sender: "user",
+          text: message,
+          timestamp: timeMs 
+        },
+        // Match 'conversationHistory' as a List of Message objects
+        conversationHistory: convo.history.map(msg => ({
+          sender: msg.sender,
+          text: msg.text,
+          timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : new Date(msg.timestamp).getTime()
         })),
-        metadata: { channel: "Chat", language: "English" }
+        // Metadata fields as defined in Python models.py
+        metadata: {
+          channel: "Chat",
+          language: "English",
+          locale: "IN"
+        }
       }, {
-        headers: { 'x-api-key': process.env.AI_AGENT_KEY },
-        timeout: 30000 
+        headers: { 
+          'x-api-key': process.env.AI_AGENT_KEY, // Python auth verify_api_key check
+          'Content-Type': 'application/json' 
+        },
+        timeout: 35000 // Vercel cold starts ke liye extra time
       });
 
-      convo.history.push({ sender: 'scammer', text: aiRes.data.reply, timestamp: Date.now() });
-      if (aiRes.data.extractedIntelligence) convo.extractedIntelligence = aiRes.data.extractedIntelligence;
+      // Step C: Save AI Reply from 'MessageResponse'
+      const botReply = aiResponse.data.reply;
+      convo.history.push({ 
+        sender: 'scammer', 
+        text: botReply, 
+        timestamp: Date.now() 
+      });
+      
+      // Sidebar intelligence sync
+      if (aiResponse.data.extractedIntelligence) {
+        convo.extractedIntelligence = aiResponse.data.extractedIntelligence;
+      }
+
     } catch (aiErr) {
-      convo.history.push({ sender: 'scammer', text: "[Agent Offline]", timestamp: Date.now() });
+      // DEBUG: Terminal mein check karo error 403 hai ya 422
+      console.error("--- AGENT ERROR ---");
+      console.error("Status Code:", aiErr.response?.status); 
+      console.error("Response Data:", aiErr.response?.data?.detail || aiErr.message);
+      
+      convo.history.push({ 
+        sender: 'scammer', 
+        text: "[AI Agent Error: Check Backend Logs]", 
+        timestamp: Date.now() 
+      });
     }
 
     await convo.save();
     res.status(201).json({ status: "success" });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
 });
 
-// Important: Vercel needs this export
-module.exports = app;
+const PORT = 5000;
+app.listen(PORT, () => console.log(`🚀 Server started on http://localhost:${PORT}`));
