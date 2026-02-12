@@ -22,7 +22,7 @@ const Chat = () => {
   // 2. DATA SYNC: Polling the Express backend for updates
   const updateChat = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/history/${sessionId}`);
+      const res = await axios.get(`https://fraud-hackathon-7mj9.vercel.app//api/history/${sessionId}`);
       // Only update state if data has actually changed to prevent unnecessary re-renders
       if (JSON.stringify(res.data.history) !== JSON.stringify(messages)) {
         setMessages(res.data.history || []);
@@ -72,7 +72,7 @@ const Chat = () => {
 
     try {
       // Background request to Express -> Vercel AI Agent
-      await axios.post('http://localhost:5000/api/messages', { 
+      await axios.post('https://fraud-hackathon-7mj9.vercel.app/api/messages', { 
         sessionId, 
         message: val 
       });
